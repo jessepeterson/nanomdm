@@ -30,12 +30,16 @@ const (
 	Production2197  = "https://api.push.apple.com:2197"
 )
 
+// CustomPusher is called for every HTTP push attempt and passed an individual pushInfo.
+type CustomPusher func(ctx context.Context, pushInfo *mdm.Push) *push.Response
+
 // Provider sends pushes to Apple's APNs servers.
 type Provider struct {
 	client     Doer
 	expiration time.Duration
 	workers    int
 	baseURL    string
+	custom     CustomPusher
 }
 
 // JSONPushError is a JSON error returned from the APNs service.
@@ -68,6 +72,12 @@ func newError(body io.Reader, statusCode int) error {
 
 // do performs the HTTP push request
 func (p *Provider) do(ctx context.Context, pushInfo *mdm.Push) *push.Response {
+	if p.custom != nil {
+		if resp := p.custom(ctx, pushInfo); resp != nil {
+			return resp
+		}
+	}
+
 	jsonPayload := []byte(`{"mdm":"` + pushInfo.PushMagic + `"}`)
 
 	url := p.baseURL + "/3/device/" + pushInfo.Token.String()

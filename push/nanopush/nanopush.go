@@ -74,6 +74,7 @@ type Factory struct {
 	newClient  NewClient
 	expiration time.Duration
 	workers    int
+	custom     CustomPusher
 }
 
 type Option func(*Factory)
@@ -100,6 +101,15 @@ func WithWorkers(workers int) Option {
 	}
 }
 
+// Sets a custom pusher function to be called every HTTP push request.
+// If custom returns nil then a normal HTTP push request is sent,
+// otherwise the result of the [CustomPusher] is returned.
+func WithCustomPush(custom CustomPusher) Option {
+	return func(f *Factory) {
+		f.custom = custom
+	}
+}
+
 // NewFactory creates a new Factory.
 func NewFactory(opts ...Option) *Factory {
 	f := &Factory{
@@ -118,6 +128,7 @@ func (f *Factory) NewPushProvider(cert *tls.Certificate) (push.PushProvider, err
 		expiration: f.expiration,
 		workers:    f.workers,
 		baseURL:    Production,
+		custom:     f.custom,
 	}
 	var err error
 	p.client, err = f.newClient(cert)
